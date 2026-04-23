@@ -1,42 +1,26 @@
-# 1. Указывается путь к папке с сообщениями (необходимо указать вручную)
-$path = "[путь_к_каталогу]"
-cd $path
+# 1. Находение и оставление в документе строки содержащей только документы от собеседника: 
+Get-Content messages.txt | Where-Object { $_ -match "doc$id_собеседника" } | Set-Content doc_messages.txt
 
-# 2. Извлекается id собеседника из последнего каталога в пути
-$id_собеседника = (Split-Path -Path $path -Leaf)
+# 2. Находение и оставление в документе только URL-ссылки голосовых сообщений от собеседника:
+Get-Content doc_messages.txt |
+    Where-Object { $_ -match 'https:.*\.ogg' } |
+    ForEach-Object { $_ -replace '.*?(https:.*?\.ogg).*', '$1' } |
+    Set-Content voice_messages.txt
 
-# 3. Переименовываются все файлы .html в .txt:
-Get-ChildItem -Filter *.html | ForEach-Object {
-    $newFileName = [System.IO.Path]::ChangeExtension($_.FullName, "txt")
-    Move-Item $_.FullName $newFileName
+# 3. Загрузка .ogg файлов:
+Get-Content voice_messages.txt | ForEach-Object {
+    $filename = [System.IO.Path]::GetFileName($_)
+    Invoke-WebRequest -Uri $_ -OutFile $filename
 }
 
-# 4. Объединяются все .txt файлы в один и удаляются оставшиеся .txt файлы:
-$filesToCombine = Get-ChildItem -Filter *.txt | Where-Object { $_.Name -ne "messages.txt" }
-$combinedContent = Get-Content $filesToCombine.FullName
-$combinedContent | Add-Content messages.txt
-$filesToCombine | Remove-Item
-
-# 5. Находение и оставление в документе строки содержащей только документы от собеседника:
-$combinedContent | Where-Object { $_ -match "doc$id_собеседника" } | Set-Content doc_messages.txt
-
-# 6. Находение и оставление в документе только URL-ссылки голосовых сообщений от собеседника:
-$voiceMessages = Get-Content doc_messages.txt | Where-Object { $_ -match 'https:.*\.ogg' } | ForEach-Object {
-    $url = $_ -replace '.*?(https:.*?\.ogg).*', '$1'
-    $url
-}
-$voiceMessages | Set-Content voice_messages.txt
-
-# 7. Загрузка .ogg файлов:
-$fileWithPath = "$path\voice_messages.txt"
-$downloadFolder = "$path"
-$voiceUrls = Get-Content $fileWithPath
-$voiceUrls | ForEach-Object {
-    $url = $_
-    $filename = [System.IO.Path]::GetFileName($url)
+# 4. Загрузка .ogg файлов:
+$downloadFolder = ".\voice_messages"
+if (-not (Test-Path $downloadFolder)) { New-Item -ItemType Directory -Path $downloadFolder }
+Get-Content voice_messages.txt | ForEach-Object {
+    $filename = [System.IO.Path]::GetFileName($_)
     $outputPath = Join-Path -Path $downloadFolder -ChildPath $filename
-    Invoke-WebRequest -Uri $url -OutFile $outputPath
+    Invoke-WebRequest -Uri $_ -OutFile $outputPath
 }
 
-# 8. Удаление ненужных .txt файлов
-Remove-Item -Path doc_messages.txt, messages.txt, voice_messages.txt
+# 5. [ОПЦИАЛЬНЬНО] Удаление .txt файлов из папки:
+Remove-Item -Path *.txt -ErrorAction SilentlyContinue
