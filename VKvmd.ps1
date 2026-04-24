@@ -23,5 +23,5 @@ Get-Content voice_messages.txt | ForEach-Object {
     Invoke-WebRequest -Uri $_ -OutFile $outputPath
 }
 
-# 5. [ОПЦИАЛЬНЬНО] Удаление .txt файлов из папки:
+# 5. [ОПЦИОНАЛЬНО] Удаление .txt файлов из папки:
 Remove-Item -Path *.txt -ErrorAction SilentlyContinue
